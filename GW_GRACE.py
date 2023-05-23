@@ -334,21 +334,21 @@ def MK_test(x,eps=0.0001, alpha=0.01):
         
         Z_1 = ndtri(1. - alpha)
       #  return np.sign(b_o),Zmk,b_o#,p,Zmk
-#         # Si hay tendencia positiva
+
         if Zmk >= Z_1:
          #    tendencia.append('Existe tendencia positiva')
              return 1.,b_o,Zmk
-#         # Si hay tendencia positiva
+
         else:
-#             return -.,b_o,p,Zmk
+
               return -1.,b_o, Zmk
         
-#         #return +1., Zmk
+
     
     # No hay tendencia en la serie
     else:       
         return 0,np.round(b_o,2),Zmk
-
+ 
 def MK_test_df(df):
     
     df_out = pd.DataFrame(index = df.columns, columns = ['Trend', 'Slope', 'Z'])
@@ -467,8 +467,6 @@ def PCA(array, matrix_used='cov', normalized=False):
     
 
         return loadings, PCscore, val
-
-
 
 def corrmap(X,Y):
     corrmap = np.zeros(X.shape[1])
@@ -651,7 +649,7 @@ def plot_scores(out, matrix, eigenval, number_com, colors, label, oni, pdo, date
     for i in range(number_com):
         per_var = np.round(np.real(eigenval[i]/np.sum(eigenval)*100),2)
         ax.plot(dates, matrix[:,i], label=label + str(i + 1), c=colors[i], ls=style[i], zorder=2)
-#    ax.set_title(str(per_var) + r'$\% Total variance$', fontweight='bold', loc='left')
+
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(color='gray', linestyle='--', alpha=0.3)
@@ -1070,12 +1068,12 @@ precip_detrend = detrend(precip_a, axis=0)
 
 #GWa_annual, dates_annual = annual_cycle(estandarizar(GWa_detrend), dates_grace)
 GWa_annual, dates_annual = annual_cycle(GWa_detrend, dates_grace)
-#plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
+# plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
 # GWa_annual_mean = [np.nanmean(GWa_annual[i,:]) for i in range(12)]
 
 #precip_annual, dates_annual = annual_cycle(estandarizar(precip_detrend), pd.date_range('1981-01-15','2021-07-17', freq='M'))
 precip_annual, dates_annual = annual_cycle(precip_detrend, pd.date_range('1981-01-15','2022-10-17', freq='M'))
-#plot_map12('figures/anual_cycle_precip.jpg', precip_annual , dates_annual, r'$Rain \, anomalies [cm]$', [-8, 8], 'PuOr', norm=False)
+# plot_map12('figures/anual_cycle_precip.jpg', precip_annual , dates_annual, r'$Rain \, anomalies [cm]$', [-8, 8], 'PuOr', norm=False)
 # precip_annual_mean = [np.nanmean(precip_annual[i,:]) for i in range(12)]
 
 #variables = [GWa_annual*2, precip_annual[-231:, :]]
@@ -1093,8 +1091,8 @@ GWa_annual_S, _ = annual_cycle(GWa_S, dates_grace)
 
 #variables = [GWa_annual*2, precip_annual[-231:, :]]
 #nombres = [r"$GWa x2$", r"$Rain$"]
-variables = [GWa_annual, GWa_annual_N, GWa_annual_C, GWa_annual_S]
-#spatial_plot('figures/anual_cycle_serie.jpg', variables, nombres, dates_annual, mascara=None)
+# variables = [GWa_annual, GWa_annual_N, GWa_annual_C, GWa_annual_S]
+# spatial_plot('figures/anual_cycle_serie.jpg', variables, nombres_GRACE, dates_annual, mascara=None)
 
 # REMOVE SEASONAL COMPONENT
 
@@ -1125,12 +1123,31 @@ GWa_detrend_model_m = moving_mean(GWa_detrend_model, 3)[2:]
 
 
 
+
+
+
 #%%
 
 # COMPOSITES    SSSS!!!
 
 
-def extract_enso_months(df, events, months):
+def extract_ENSO_months(df, events, months):
+
+    """
+    Extract ENSO months from variable DataFrame based on DataFrame constructed with function -> define_ENSO_months 
+
+    Parameters
+    ----------
+
+    df : DataFrame: Features or pixels of variable as columns in a df with date index,
+    events : DataFrame: Df with at least columns of start_date and end_date of each event of the same ENSO phase.
+    months : list: Months selected to extract.
+
+    Returns:
+    --------
+
+    DataFrame: of variable based on ENSO months.
+    """
 
     enso_months = pd.DataFrame()
 
@@ -1142,167 +1159,196 @@ def extract_enso_months(df, events, months):
 
     return enso_months
 
+def monthly_composites(df, events, months, lag = 0, type = "total"):
+
+    """
+    Composites of variable in df based on each phase of ENSO with a specific lag.
+
+    Parameters:
+    -----------
+
+    df: DataFrame: DataFrame of Variable to calculate composites.
+    events : DataFrame: Df with at least columns of start_date and end_date of each event of the same ENSO phase.
+    months : list: Months selected to extract.
+    lag: int: Lag of variable with respect to ENSO.
+    type: str: total or season
+
+    Returns:
+    --------
+    
+    DataFrame: of features composites total or seasonal.
+    """
+    df_event = extract_ENSO_months(df.shift(-1*lag), events, months)
+    df_event = df_event.groupby(df_event.index.month).mean()
+
+    if type == "total":
+        df_event_total = df_event.mean(axis=0).values
+    elif type == "season":
+        df_event.index = pd.to_datetime(df_event.index, format="%m")
+        df_event_total = df_event.resample('QS-DEC').mean()
+        df_event_total= df_event_total.groupby(df_event_total.index.month).mean()
+    else:
+        print("Check type")
+    
+    return df_event_total
 
 
-months = ['January', "February", "March", "April", "May", "June", "July", "August", "September", \
+def define_ENSO_phase(df, thrsld, min_duration):
+
+    """
+    Define ENSO events from an index based on a threshold and a minimun consecutive months.
+
+    Parameters:
+    -----------
+
+    df: DataFrame or Series: with ENSO index (ONI in this case).
+    thrsld: float: Threshold value of SST (3.4 region in this case) to define ENSO phase.
+    min_duration: int: Number of consecutive months to define ENSO phase.
+
+    Returns:
+    --------
+
+    3 DataFrames of each ENSO phase -> El Niño, La Niña y Neutral with the following columns:
+    event_type, start_date, envd_date, duration_months, max_value, min_value.
+    """
+
+    # Define ONI thresholds for El Niño and La Niña
+    oni_el_nino_threshold = thrsld
+    oni_la_nina_threshold = -1*thrsld
+
+    ONI_gracee = pd.DataFrame(df)
+    # Create a new column in the DataFrame to indicate ENSO phase
+    ONI_gracee['enso_phase'] = pd.cut(ONI_gracee[df.name], 
+                                    bins=[-999, oni_la_nina_threshold, oni_el_nino_threshold, 999],
+                                    labels=['la_nina', 'neutral', 'el_nino'])
+
+    # Create a new column to identify the start of each event
+    ONI_gracee['event_start'] = (ONI_gracee['enso_phase'] != ONI_gracee['enso_phase'].shift(1)) & \
+                            ((ONI_gracee['enso_phase'] == 'el_nino') | (ONI_gracee['enso_phase'] == 'la_nina') \
+                            | (ONI_gracee['enso_phase'] == 'neutral'))
+
+    # Group the data by event and extract information about each event
+    events = ONI_gracee.groupby((ONI_gracee['event_start'] == True).cumsum()).apply(
+        lambda x: pd.Series({
+            'event_type': x['enso_phase'].iloc[0],
+            'start_date': x.index[0],
+            'end_date': x.index[-1],
+            'duration_months': len(x),
+            'max_value': x[df.name].max(),
+            'min_value': x[df.name].min()
+        })
+    )
+
+    # Filter the events to include only El Niño and La Niña events with at least 5 consecutive months, the rest in neutral
+
+    events.loc[events.duration_months < min_duration, "event_type"] = "neutral"
+
+    el_nino_events = events[events['event_type'] == 'el_nino']
+    la_nina_events = events[events['event_type'] == 'la_nina']
+    neutral_events = events[events['event_type'] == 'neutral']
+
+    return el_nino_events, la_nina_events, neutral_events
+
+
+def lag_composites(array, index_dates, ENSO_index, lag, type):
+
+    """
+    Composite of ENSO phases.
+
+    Parameters:
+    -----------
+
+    array: numpy.ndarray: Matrix with variable data with shape (n_times, features)
+    index_dates: DatetimeIndex: Monthly index dates with dtype datetime64.
+    ENSO_index: DataFrame or Series: With ENSO index (ONI in this case).
+    lag: int: Monthly lag of array with respect to ENSO.
+    type: str: total or season
+
+    Check duration months and threshold for determine ENSO phase.
+
+    Returns:
+    --------
+    numpy.ndarray: Composites array with each ENSO phase.
+    if type == total : shape = (features, 3 -> each phase [El Niño, La Niña y Neutral])
+    if type == season : shape (features, 12 -> [DFJ, MAM, JJA, SON] for each phase [El Niño, La Niña y Neutral])
+    """
+
+    months = ['January', "February", "March", "April", "May", "June", "July", "August", "September", \
           "October", "November", "December"]
+    
+    duration_months = 5
+    threshold = 0.5
 
+    df = pd.DataFrame(array, index=index_dates)
 
-# DE GRACE
+    el_nino_events, la_nina_events, neutral_events = define_ENSO_phase(ENSO_index, threshold, duration_months)
 
-GWa_df = pd.DataFrame(GWa_residual_m, index=dates_grace[2:])
-GWa_model_df = pd.DataFrame(GWa_detrend_model_m, index=dates_model[2:])
+    df_nino = monthly_composites(df, el_nino_events, months, lag, type)
+    df_nina = monthly_composites(df, la_nina_events, months, lag, type)
+    df_neutral = monthly_composites(df, neutral_events, months, lag, type)
 
+    if type == "total":
+        composites = np.array([df_nino, df_nina, df_neutral])
+    elif type == "season":
+        composites = np.array(pd.concat([df_nino, df_nina, df_neutral], axis=0))
+    else:
+        print("check type")
 
-# Define ONI thresholds for El Niño and La Niña
-oni_el_nino_threshold = 0.5
-oni_la_nina_threshold = -0.5
+    return composites.T
 
-ONI_gracee = pd.DataFrame(ONI_grace)
-# Create a new column in the DataFrame to indicate ENSO phase
-ONI_gracee['enso_phase'] = pd.cut(ONI_gracee['ONI'], 
-                                bins=[-999, oni_la_nina_threshold, oni_el_nino_threshold, 999],
-                                labels=['la_nina', 'neutral', 'el_nino'])
+lag = 3
 
-# Create a new column to identify the start of each event
-ONI_gracee['event_start'] = (ONI_gracee['enso_phase'] != ONI_gracee['enso_phase'].shift(1)) & \
-                          ((ONI_gracee['enso_phase'] == 'el_nino') | (ONI_gracee['enso_phase'] == 'la_nina') \
-                           | (ONI_gracee['enso_phase'] == 'neutral'))
+labels_composites = ['El Niño', 'La Niña', 'Neutral']
+total_composites = lag_composites(GWa_residual_m, dates_grace[2:], ONI_grace, lag, "total")
+total_composites_m = lag_composites(GWa_detrend_model_m, dates_model[2:], ONI_model, lag, "total")
 
-# Group the data by event and extract information about each event
-events = ONI_gracee.groupby((ONI_gracee['event_start'] == True).cumsum()).apply(
-    lambda x: pd.Series({
-        'event_type': x['enso_phase'].iloc[0],
-        'start_date': x.index[0],
-        'end_date': x.index[-1],
-        'duration_months': len(x),
-        'max_oni': x['ONI'].max(),
-        'min_oni': x['ONI'].min()
-    })
-)
-
-# Filter the events to include only El Niño, La Niña, and neutral events with at least 5 consecutive months
-events = events[events['duration_months'] >= 5]
-el_nino_events = events[events['event_type'] == 'el_nino']
-la_nina_events = events[events['event_type'] == 'la_nina']
-neutral_events = events[events['event_type'] == 'neutral']
-
-
-GWa_nino = extract_enso_months(GWa_df, el_nino_events, months)
-GWa_nina = extract_enso_months(GWa_df, la_nina_events, months)
-GWa_neutral = extract_enso_months(GWa_df, neutral_events, months)
-
-GWa_nino = GWa_nino.groupby(GWa_nino.index.month).mean()
-GWa_nina = GWa_nina.groupby(GWa_nina.index.month).mean()
-GWa_neutral = GWa_neutral.groupby(GWa_neutral.index.month).mean()
-
-GWa_nino_total = GWa_nino.mean(axis=0).values
-GWa_nina_total = GWa_nina.mean(axis=0).values
-GWa_neutral_total = GWa_neutral.mean(axis=0).values
-
-total_months = np.array([GWa_nino_total, GWa_neutral_total, GWa_nina_total])
-
-total_composites = ['El Niño', 'Neutral', 'La Niña']
-plot_EOFs(f'figures/total_composites_grace.jpg', total_months.T, lat_grace, lon_grace, 3, total_composites,r'anom',\
-        50, grid=(1,3), fig_size=(6,3), points=None)
-
-
-GWa_nino.index = pd.to_datetime(GWa_nino.index, format="%m")
-GWa_nino_seasons = GWa_nino.resample('QS-DEC').mean()
-GWa_nino_seasons= GWa_nino_seasons.groupby(GWa_nino_seasons.index.month).mean()
-
-GWa_nina.index = pd.to_datetime(GWa_nina.index, format="%m")
-GWa_nina_seasons = GWa_nina.resample('QS-DEC').mean()
-GWa_nina_seasons= GWa_nina_seasons.groupby(GWa_nina_seasons.index.month).mean()
-
-GWa_neutral.index = pd.to_datetime(GWa_neutral.index, format="%m")
-GWa_neutral_seasons = GWa_neutral.resample('QS-DEC').mean()
-GWa_neutral_seasons= GWa_neutral_seasons.groupby(GWa_neutral_seasons.index.month).mean()
-
-
-seasonal_composites = np.array(pd.concat([GWa_nino_seasons, GWa_neutral_seasons, GWa_nina_seasons], axis=0))
-seasonal_labels = ["DJF", "MAM", "JJA", "SON"] + [""] * 8
-
-plot_EOFs(f'figures/seasonal_composites_grace.jpg', seasonal_composites.T, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
-        5, grid=(3,4), fig_size=(6,6), points=None)
-
-
-
-
-# COMPOSITE MODEL
-
-
-# Define ONI thresholds for El Niño and La Niña
-oni_el_nino_threshold = 0.5
-oni_la_nina_threshold = -0.5
-
-ONI_modell = pd.DataFrame(ONI_model)
-# Create a new column in the DataFrame to indicate ENSO phase
-ONI_modell['enso_phase'] = pd.cut(ONI_modell['ONI'], 
-                                bins=[-999, oni_la_nina_threshold, oni_el_nino_threshold, 999],
-                                labels=['la_nina', 'neutral', 'el_nino'])
-
-# Create a new column to identify the start of each event
-ONI_modell['event_start'] = (ONI_modell['enso_phase'] != ONI_modell['enso_phase'].shift(1)) & \
-                          ((ONI_modell['enso_phase'] == 'el_nino') | (ONI_modell['enso_phase'] == 'la_nina') \
-                           | (ONI_modell['enso_phase'] == 'neutral'))
-
-# Group the data by event and extract information about each event
-events = ONI_modell.groupby((ONI_modell['event_start'] == True).cumsum()).apply(
-    lambda x: pd.Series({
-        'event_type': x['enso_phase'].iloc[0],
-        'start_date': x.index[0],
-        'end_date': x.index[-1],
-        'duration_months': len(x),
-        'max_oni': x['ONI'].max(),
-        'min_oni': x['ONI'].min()
-    })
-)
-
-# Filter the events to include only El Niño, La Niña, and neutral events with at least 5 consecutive months
-events = events[events['duration_months'] >= 5]
-el_nino_events = events[events['event_type'] == 'el_nino']
-la_nina_events = events[events['event_type'] == 'la_nina']
-neutral_events = events[events['event_type'] == 'neutral']
-
-
-GWa_nino = extract_enso_months(GWa_df, el_nino_events, months)
-GWa_nina = extract_enso_months(GWa_df, la_nina_events, months)
-GWa_neutral = extract_enso_months(GWa_df, neutral_events, months)
-
-GWa_nino = GWa_nino.groupby(GWa_nino.index.month).mean()
-GWa_nina = GWa_nina.groupby(GWa_nina.index.month).mean()
-GWa_neutral = GWa_neutral.groupby(GWa_neutral.index.month).mean()
-
-GWa_nino_total = GWa_nino.mean(axis=0).values
-GWa_nina_total = GWa_nina.mean(axis=0).values
-GWa_neutral_total = GWa_neutral.mean(axis=0).values
-
-total_months = np.array([GWa_nino_total, GWa_neutral_total, GWa_nina_total])
-
-total_composites = ['El Niño', 'Neutral', 'La Niña']
-plot_EOFs(f'figures/total_composites_model.jpg', total_months.T, lat_grace, lon_grace, 3, total_composites,r'anom',\
+plot_EOFs(f'figures/total_composites_grace.jpg', total_composites, lat_grace, lon_grace, 3, labels_composites,r'anom',\
         5, grid=(1,3), fig_size=(6,3), points=None)
 
+plot_EOFs(f'figures/total_composites_model.jpg', total_composites_m, lat_grace, lon_grace, 3, labels_composites,r'anom',\
+        5, grid=(1,3), fig_size=(6,3), points=None)
 
-GWa_nino.index = pd.to_datetime(GWa_nino.index, format="%m")
-GWa_nino_seasons = GWa_nino.resample('QS-DEC').mean()
-GWa_nino_seasons= GWa_nino_seasons.groupby(GWa_nino_seasons.index.month).mean()
-
-GWa_nina.index = pd.to_datetime(GWa_nina.index, format="%m")
-GWa_nina_seasons = GWa_nina.resample('QS-DEC').mean()
-GWa_nina_seasons= GWa_nina_seasons.groupby(GWa_nina_seasons.index.month).mean()
-
-GWa_neutral.index = pd.to_datetime(GWa_neutral.index, format="%m")
-GWa_neutral_seasons = GWa_neutral.resample('QS-DEC').mean()
-GWa_neutral_seasons= GWa_neutral_seasons.groupby(GWa_neutral_seasons.index.month).mean()
-
-
-seasonal_composites = np.array(pd.concat([GWa_nino_seasons, GWa_neutral_seasons, GWa_nina_seasons], axis=0))
 seasonal_labels = ["DJF", "MAM", "JJA", "SON"] + [""] * 8
+seasonal_composites = lag_composites(GWa_residual_m, dates_grace[2:], ONI_grace, lag, "season")
+season_composites_m = lag_composites(GWa_detrend_model_m, dates_model[2:], ONI_model, lag, "season")
 
-plot_EOFs(f'figures/seasonal_composites_model.jpg', seasonal_composites.T, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
+plot_EOFs(f'figures/seasonal_composites_grace.jpg', seasonal_composites, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
         5, grid=(3,4), fig_size=(6,6), points=None)
+
+plot_EOFs(f'figures/seasonal_composites_model.jpg', season_composites_m, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
+        5, grid=(3,4), fig_size=(6,6), points=None)
+
+
+#%%
+
+precip_residual_m = moving_mean(precip_residual.reshape(501, 24*18), 3)[3:]
+
+
+lag = 0
+
+total_composites_p = lag_composites(precip_residual_m, pd.date_range('1981-04-15','2022-10-17', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "total")
+
+plot_EOFs(f'figures/total_composites_precip.jpg', total_composites_p, lat_grace, lon_grace, 3, labels_composites,r'anom',\
+        1, grid=(1,3), fig_size=(6,3), points=None)
+
+seasonal_composites_p = lag_composites(precip_residual_m, pd.date_range('1981-04-15','2022-10-17', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "season")
+
+plot_EOFs(f'figures/seasonal_composites_precip.jpg', seasonal_composites_p, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
+        1, grid=(3,4), fig_size=(6,6), points=None)
+
+
+# Precip_N = (mask*precip_residual_m.reshape(498, 24, 18))[:, :8, :]
+# Precip_C = (mask*precip_residual_m.reshape(498, 24, 18))[:, 8:15, :]
+# Precip_S = (mask*precip_residual_m.reshape(498, 24, 18))[:, 15:, :]
+
+
+# plt.figure(figsize=(10, 12))
+# plt.plot(pd.date_range('1981-04-15','2022-10-17', freq='M'), np.nanmean(Precip_N, axis=(1,2)))
+
+#plt.plot(pd.date_range('1981-04-15','2022-10-17', freq='M'), np.nanmean(Precip_C, axis=(1,2)))
+#plt.plot(pd.date_range('1981-04-15','2022-10-17', freq='M'), np.nanmean(Precip_S, axis=(1,2)))
+
+
 #%%
 # Analisis sin filtrado
 
@@ -2150,7 +2196,7 @@ fig.savefig(f"figures/LAGcorr_r_{matrix_used}.pdf", dpi=200, transparent=False, 
 
 # CORRELACIONES 
 
-precip_residual_m = moving_mean(precip_residual, 3)[3:]
+
 r_precip_grace = np.array([corrmap(precip_residual_m[:len(selected[:,k])], selected[:,k])[0] for k in range(3)])
 r_precip_model = np.array([corrmap(precip_residual_m[:len(selected_model[28:,k])], selected_model[28:,k])[0] for k in range(3)])
 
@@ -2521,6 +2567,9 @@ print(np.sum(Precip_C_mean), \
 print(np.sum(Precip_S_mean), \
       'cm/year in south')
 
+
+
+#%%
 
 cmap = 'Blues'
 matrix = precip_annual2
