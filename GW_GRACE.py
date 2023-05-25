@@ -1117,12 +1117,13 @@ GWa_detrend_model = detrend(GWa_model, axis=0)
 colors = ['firebrick', 'royalblue', 'darkturquoise', 'lime']
 
 # Probando suavizado
-GWa_residual_m = moving_mean(GWa_residual, 3)[2:]
-GWa_detrend_model_m = moving_mean(GWa_detrend_model, 3)[2:]
+# GWa_residual_m = moving_mean(GWa_residual, 3)[2:]
+# GWa_detrend_model_m = moving_mean(GWa_detrend_model, 3)[2:]
 
 
 
-
+GWa_residual_m = GWa_detrend.reshape(247, 24*18)[2:]
+GWa_detrend_model_m = GWa_detrend_model[2:]
 
 
 
@@ -1296,7 +1297,7 @@ def lag_composites(array, index_dates, ENSO_index, lag, type):
 
     return composites.T
 
-lag = 3
+lag = 0
 
 labels_composites = ['El Niño', 'La Niña', 'Neutral']
 total_composites = lag_composites(GWa_residual_m, dates_grace[2:], ONI_grace, lag, "total")
@@ -1321,8 +1322,8 @@ plot_EOFs(f'figures/seasonal_composites_model.jpg', season_composites_m, lat_gra
 
 #%%
 
-precip_residual_m = moving_mean(precip_residual.reshape(501, 24*18), 3)[3:]
-
+#precip_residual_m = moving_mean(precip_residual.reshape(501, 24*18), 3)[3:]
+precip_residual_m = precip_residual[3:]
 
 lag = 0
 
