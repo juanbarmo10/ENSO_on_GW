@@ -1,7 +1,6 @@
 
 #%%
 
-
 import os
 from types import NoneType
 import numpy as np
@@ -37,6 +36,8 @@ from sklearn.decomposition import PCA as pca
 import seaborn as sns
 import warnings
 from statsmodels.tsa.stattools import grangercausalitytests
+from matplotlib.ticker import FuncFormatter
+from matplotlib.dates import MonthLocator, DateFormatter
 
 warnings.filterwarnings('ignore')
 
@@ -394,7 +395,7 @@ def fourier_filter(serie, freq_min=24, freq_max=84):
             
     Freq = np.fft.fftfreq(len(serie), d=1) 
     Fpos = Freq[ Freq >= 0 ]
-    fourier  = np.fft.fft(serie, norm="forward" )
+    fourier  = np.fft.fft(serie, norm="forward")
 
     fourier[np.where((np.abs(1/  Freq) > (freq_max)) | (np.abs(1 / Freq) < (freq_min)))] = 0
     inverse = np.fft.ifft(fourier)
@@ -601,18 +602,43 @@ def plot_EOFs(out, matrix, lat, lon, num, title,labeli, vals, grid=(1,4), fig_si
     fig ,ax= plt.subplots(grid[0], grid[1], figsize=fig_size,sharex=True, sharey=True,\
                           dpi=200, subplot_kw={'projection': ccrs.PlateCarree()}, constrained_layout=True)
 
-    for i in range(num):
-        
-        eof = matrix[:,i].reshape(lat.shape[0], lon.shape[0])
+    if num > 1:
+        for i in range(num):
+            
+            eof = matrix[:,i].reshape(lat.shape[0], lon.shape[0])
 
-        ax.flat[i].add_feature(cfeature.ShapelyFeature(reader.geometries(),ccrs.PlateCarree()),\
-               facecolor='none', edgecolor=[0,0,0,1],linewidth=1)
-        ax.flat[i].add_feature(cartopy.feature.NaturalEarthFeature(category='cultural',scale='50m',
-          name='admin_1_states_provinces_lines',edgecolor='k', facecolor='none',linewidth=0.5))
-        ax.flat[i].contourf(lon,lat, eof*mask, cmap='bwr_r',vmax=vals,vmin=-1*vals)
+            ax.flat[i].add_feature(cfeature.ShapelyFeature(reader.geometries(),ccrs.PlateCarree()),\
+                    facecolor='none', edgecolor=[0,0,0,1],linewidth=1)
+            ax.flat[i].add_feature(cartopy.feature.NaturalEarthFeature(category='cultural',scale='50m',
+                name='admin_1_states_provinces_lines',edgecolor='k', facecolor='none',linewidth=0.5))
+            ax.flat[i].contourf(lon,lat, eof*mask, cmap='bwr_r',vmax=vals,vmin=-1*vals)
 
-        gl = ax.flat[i].gridlines(crs=ccrs.PlateCarree(),xlocs=np.linspace(min(lon_) - 1, max(lon_)-1, 3,dtype=int),
-                  draw_labels=True,linewidth=1,color='k',alpha=0.3, linestyle='--')          
+            gl = ax.flat[i].gridlines(crs=ccrs.PlateCarree(),xlocs=np.linspace(min(lon_) - 1, max(lon_)-1, 3,dtype=int),
+                        draw_labels=True,linewidth=1,color='k',alpha=0.3, linestyle='--')          
+            gl.xlabels_top = False
+            gl.ylabels_right = False
+            gl.ylocator = mticker.FixedLocator(np.linspace(min(lat)+1, max(lat) -1, 2, dtype=int))
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            gl.ylabel_style = {'fontname':'Arial', 'fontsize': 10}
+            gl.xlabel_style = {'fontname':'Arial', 'fontsize': 10}        
+
+            ax.flat[i].set_title(title[i],loc='left',fontsize=12, **csfont)
+                
+            if points is not None:
+                points = points.reshape(points.shape[0], points.shape[1], lat.shape[0], lon.shape[0])
+                ax.flat[i].scatter((points[i, 1, :, :])*mask, (points[i, 0, :, :])*mask, color="k",s=1,alpha=0.5, transform=ccrs.PlateCarree())
+
+    else:
+        eof = matrix.reshape(lat.shape[0], lon.shape[0])
+        ax.add_feature(cfeature.ShapelyFeature(reader.geometries(),ccrs.PlateCarree()),\
+                    facecolor='none', edgecolor=[0,0,0,1],linewidth=1)
+        ax.add_feature(cartopy.feature.NaturalEarthFeature(category='cultural',scale='50m',
+            name='admin_1_states_provinces_lines',edgecolor='k', facecolor='none',linewidth=0.5))
+        ax.contourf(lon,lat, eof*mask, cmap='bwr_r',vmax=vals,vmin=-1*vals)
+
+        gl = ax.gridlines(crs=ccrs.PlateCarree(),xlocs=np.linspace(min(lon_) - 1, max(lon_)-1, 3,dtype=int),
+                    draw_labels=True,linewidth=1,color='k',alpha=0.3, linestyle='--')          
         gl.xlabels_top = False
         gl.ylabels_right = False
         gl.ylocator = mticker.FixedLocator(np.linspace(min(lat)+1, max(lat) -1, 2, dtype=int))
@@ -621,12 +647,12 @@ def plot_EOFs(out, matrix, lat, lon, num, title,labeli, vals, grid=(1,4), fig_si
         gl.ylabel_style = {'fontname':'Arial', 'fontsize': 10}
         gl.xlabel_style = {'fontname':'Arial', 'fontsize': 10}        
 
-        ax.flat[i].set_title(title[i],loc='left',fontsize=12, **csfont)
+        ax.set_title(title,loc='left',fontsize=12, **csfont)
             
         if points is not None:
             points = points.reshape(points.shape[0], points.shape[1], lat.shape[0], lon.shape[0])
-            ax.flat[i].scatter((points[i, 1, :, :])*mask, (points[i, 0, :, :])*mask, color="k",s=1,alpha=0.5, transform=ccrs.PlateCarree())
-   
+            ax.scatter((points[i, 1, :, :])*mask, (points[i, 0, :, :])*mask, color="k",s=1,alpha=0.5, transform=ccrs.PlateCarree())
+            
     fig.subplots_adjust(bottom=0.3)
     cbar_ax = fig.add_axes([0.1, 0.0001, 0.8, 0.01])
     cbar_ax.grid(False)
@@ -891,7 +917,7 @@ def extract_ENSO_months(df, events, months):
 
     for i in events.index:
         mask_event = (df.index >= events['start_date'].loc[i].to_timestamp()) & \
-                (df.index <= events['end_date'].loc[i].to_timestamp())
+                (df.index <= events['end_date'].loc[i].to_timestamp() + timedelta(30)) # se le añaden 30 dias para que coja el ultimo mes
         enso_months_tmp = df[mask_event].loc[df[mask_event].index.month_name().isin(months)]
         enso_months = pd.concat([enso_months, enso_months_tmp], axis=0)
 
@@ -925,6 +951,8 @@ def monthly_composites(df, events, months, lag = 0, type = "total"):
         df_event.index = pd.to_datetime(df_event.index, format="%m")
         df_event_total = df_event.resample('QS-DEC').mean()
         df_event_total= df_event_total.groupby(df_event_total.index.month).mean()
+    elif type == "month":
+        df_event_total = df_event
     else:
         print("Check type")
     
@@ -1013,7 +1041,7 @@ def lag_composites(array, index_dates, ENSO_index, lag, type):
           "October", "November", "December"]
     
     duration_months = 5
-    threshold = 0.5
+    threshold = 0.49
 
     df = pd.DataFrame(array, index=index_dates)
 
@@ -1027,11 +1055,58 @@ def lag_composites(array, index_dates, ENSO_index, lag, type):
         composites = np.array([df_nino, df_nina, df_neutral])
     elif type == "season":
         composites = np.array(pd.concat([df_nino, df_nina, df_neutral], axis=0))
+    elif type == "month":
+        composites = np.array([df_nino, df_nina, df_neutral])
     else:
         print("check type")
 
     return composites.T
 
+def plot_enso_years(df, y, ax=None, phase_values=[-1.,0.,1.], colors=['skyblue','white','salmon'], fill_params={}):
+    if ax is None:
+        ax = plt.gca()
+    for phase in phase_values:
+        mask = df.phase == phase
+        ax.fill_between(df.index, np.nanmin(df[y].values), np.nanmax(df[y].values),\
+             where=mask, facecolor=colors[int(phase)+1], **fill_params)
+    return(ax)
+
+def ENSO_category(df, oni):
+
+    months = ['January', "February", "March", "April", "May", "June", "July", "August", "September", \
+          "October", "November", "December"]
+    duration_months = 5
+    threshold = 0.499
+
+    el_nino_events, la_nina_events, neutral_events = define_ENSO_phase(oni, threshold, duration_months)
+
+    df_nino = extract_ENSO_months(df, el_nino_events, months)
+    df_nina = extract_ENSO_months(df, la_nina_events, months)
+    df_neutral = extract_ENSO_months(df, neutral_events, months)
+
+    df_nino["phase"] = pd.Series([1 for x in range(len(df_nino.index))], index=df_nino.index)
+    df_nina["phase"] = pd.Series([-1 for x in range(len(df_nina.index))], index=df_nina.index)
+    df_neutral["phase"] = pd.Series([0 for x in range(len(df_neutral.index))], index=df_neutral.index)
+
+    df_enso = pd.concat([df_nino, df_nina, df_neutral])
+    df_enso.sort_index(inplace=True)
+    return df_enso
+
+def HPA_zones(data, mask):
+    """
+    Returns data divided by HPA zones
+    """
+    n = data.shape[0]
+    data_tmp = mask*data.reshape(n, 24,18)
+    #North = data_tmp[:, :10, :]
+    North = (data_tmp[:, :10, :]).reshape(data_tmp.shape[0], 10*18)
+    Central = np.concatenate((data_tmp[:, 10:17, :8].reshape(n, int(data_tmp[:, 10:17, :8].size / n)), \
+                          data_tmp[:, 10:19, 8:].reshape(n, int(data_tmp[:, 10:19, 8:].size / n))), axis=1)
+
+    South = np.concatenate((data_tmp[:, 19:, 8:].reshape(n, int(data_tmp[:, 19:, 8:].size / n)), \
+                          data_tmp[:, 17:, :8].reshape(n, int(data_tmp[:, 17:, :8].size / n))), axis=1)
+    
+    return North, Central, South
 
 "**************************************************************************************************"
 
@@ -1044,8 +1119,9 @@ def lag_composites(array, index_dates, ENSO_index, lag, type):
 data_grace = Dataset('data/GRCTellus.JPL.200204_202211.GLO.RL06.1M.MSCNv03CRI.nc')
 
 mask = np.genfromtxt('data/mask.csv', delimiter = ',')
-#dates_grace = pd.date_range('2002-04-15','2021-07-17', freq='M')
 dates_grace = pd.date_range('2002-04-15','2022-11-17', freq='M')
+
+time_grace = np.array([datetime(2002,1,1) + timedelta(days = times) for times in np.array(data_grace["time"])])
 
 with open('data/tws_fill.npy', 'rb') as f:
     TWS = np.load(f)
@@ -1074,7 +1150,9 @@ data_model = Dataset('data/GRACE_REC_v03_JPL_ERA5_monthly_ens082.nc')
 TWS_model_best = read_model(data_model)
 time_model = np.array(data_model.variables['time'][:]) 
 dates_model = np.array([datetime(1901,1,1) + timedelta(days = time_model[i]) for i in range(len(time_model))])
+dates_model = pd.date_range('1979-01-15','2019-08-17', freq='M')
 dates_model_grace = dates_model[279:]
+
 
 
 with open('data/fit_model.npy', 'rb') as f:
@@ -1083,8 +1161,8 @@ with open('data/fit_model.npy', 'rb') as f:
 # with open('data/ensembles.npy', 'rb') as f:
 #     TWS_model0 = np.load(f)
 
-# TWS_model = np.nanmean(TWS_model0, axis=0)
-# TWS_model_std = np.nanstd(TWS_model0, axis=0)
+# TWS_model = np.nanmean(TWS_model_best, axis=0)
+# TWS_model_std = np.nanstd(TWS_model_best, axis=0)
 
 
 # fig, axes = plt.subplots(figsize=(10,3), dpi=200)
@@ -1111,8 +1189,8 @@ data_chirps = Dataset('data/chirps_monthly_gracegrid.nc')
 precip = read_grace(data_chirps, 'precip')[0] / 10
 time_chirps = np.array(data_chirps.variables['time'][:]) 
 dates_chirps = np.array([datetime(1980,1,1) + timedelta(days = int(i)) for i in time_chirps])
-dates_chirps = dates_chirps[:-3]
-precip = precip[:-3]
+dates_chirps = dates_chirps[:-2]
+precip = precip[:-2]
 
 # ONI
 
@@ -1142,9 +1220,49 @@ SWEa, SWEa_model = SWE - np.nanmean(SWE, axis=0), SWE_model - np.nanmean(SWE_mod
 
 GWa = TWSa - SMa - SWEa    # Ecuacion 1
 
-GWa_N = (mask*GWa)[:, :8, :]
-GWa_C = (mask*GWa)[:, 8:15, :]
-GWa_S = (mask*GWa)[:, 15:, :]
+
+# REMOVE LINEAR TREND
+
+GWa_m = moving_mean(GWa.reshape(247, 24*18), 3)[2:-1]
+GWa_detrend = detrend(GWa_m, axis=0)
+
+
+TWSa_m = moving_mean(TWSa.reshape(247, 24*18), 3)[2:-1]
+TWSa_detrend = detrend(TWSa_m, axis=0)
+
+dates_grace = dates_grace[2:-1]
+
+#precip_a = anomalies(precip, 276)[:-12]
+precip_m = moving_mean(precip.reshape(502, 24*18), 3)[2:-1]
+precip_a = precip_m - np.nanmean(precip_m, axis=0)
+precip_detrend = detrend(precip_a, axis=0)
+
+dates_chirps = pd.date_range("1981-01", "2022-11", freq="M")[2:-1]
+
+# GWa_N = (mask*GWa_m.reshape(244, 24,18))[:, :8, :]
+# GWa_C = (mask*GWa_m.reshape(244, 24,18))[:, 8:15, :]
+# GWa_S = (mask*GWa_m.reshape(244, 24,18))[:, 15:, :]
+
+# TWSa_N = (mask*TWSa_m.reshape(244, 24,18))[:, :8, :]
+# TWSa_C = (mask*TWSa_m.reshape(244, 24,18))[:, 8:15, :]
+# TWSa_S = (mask*TWSa_m.reshape(244, 24,18))[:, 15:, :]
+
+# precip_N = (mask*precip_m.reshape(499, 24,18))[:, :8, :]
+# precip_C = (mask*precip_m.reshape(499, 24,18))[:, 8:15, :]
+# precip_S = (mask*precip_m.reshape(499, 24,18))[:, 15:, :]
+
+
+GWa_N, GWa_C, GWa_S = HPA_zones(GWa_m, mask)
+TWSa_N, TWSa_C, TWSa_S = HPA_zones(TWSa_m, mask)
+precip_N, precip_C, precip_S = HPA_zones(precip_m, mask)
+    
+# GWa_test = GWa_m
+# GWa_test = GWa_test.reshape(244, 24, 18)
+
+
+
+# plot_EOFs(f'figures/test_zonas.jpg', np.nanmean(GWa_test, axis=0), lat_grace, lon_grace, 1, "",f'cm',\
+#             1, grid=(1,1), fig_size=(6,3), points=None)
 
 #Stadistics
 
@@ -1154,103 +1272,65 @@ nombres = [r"TWSa", r"SMa", r"SWEa", r"SMa model", r"SWEa model"]
 [basic_stats(variables[i]*mask, nombres[i]) for i in range(len(variables))]
 
 
-
-# spatial_plot('', variables, nombres, dates_grace, mascara=mask)
-
-# #plot corr
-# fig, axes = plt.subplots(1,2,figsize=(12,3))
-# sns.heatmap(corr_matrix(variables[:4], nombres[:4], dates_grace),ax=axes[0] , annot=True, cmap='Blues')
-# sns.heatmap(corr_matrix(variables[4:], nombres[4:], dates_model),ax=axes[1] , annot=True, cmap='Blues')
-
-
-# MK TEST
-#plot_MK_test('figures/mk_test_GWa.jpg' ,GWa, tendencia(GWa)[0], lat_grace, lon_grace)
-
-
-nombres = sorted(os.listdir('data/pozos'))
-
-delimiters = [' ', ' ', '\t', '\t','\t','\t','\t','\t','\t',' ','\t','\t','\t','\t',' ', '\t','\t','\t', '\t']
-col_date = [3,5,2,3,3,2,3,3,3,3,3,3,3,3,3,3,3,3,3]
-col_val = [4,10,3,6,6,3,6,6,6,4,6,6,6,6,4,6,6,6,6]
-
-df = pd.DataFrame(index=pd.date_range('01-01-1940', '31-10-2021', freq='M'))
-
-
-for i, j in enumerate(nombres):
-    serie = pd.read_csv(f'data/pozos/{nombres[i]}', delimiter=delimiters[i], header = None, usecols = [col_date[i],col_val[i]], index_col=0,names = ['date' ,nombres[i].split('.')[0]], infer_datetime_format = True)
-    serie.index = pd.to_datetime(serie.index, errors='coerce')
-    serie = serie.resample('M').mean()
-    
-    df = df.join(serie)
-    
-df
-
-ft_to_cm = 30.48
-s_y = -0.15
-
-df_anom = (df*ft_to_cm - (df*ft_to_cm).mean()) * s_y
-#df_anom = s_y * ft_to_cm * df.diff()
-
-df_anom = df_anom.interpolate('linear', limit_direction = 'both')
-df_anom = df_anom['1979':'06-2021']
-
-df_anom = df_anom.drop('NE04', axis=1)
-
-mann_kendall = MK_test_df(df_anom)
-#mann_kendall = MK_test_df(df_gmean_season + df_gmean_residuales)
-    
-locacion = pd.read_excel('data/loc_pozos.xls', index_col=0)
-locacion = locacion.drop('NE04')
-
-s = mann_kendall['Slope'].values.astype('float16')
-
-# Zoom
-locacion_zoom = locacion['NE01':'NE12']
-s_zoom = mann_kendall['Slope']['NE01':'NE12'].values.astype('float16')
-
-names = df_anom.columns
-names_zoom = names[1:10]
-names = np.setdiff1d(names, names_zoom)
-
-average = df_anom.groupby(df_anom.index.month).mean()
-average.index = pd.date_range('1/15/2020', '1/15/2021', freq='M').strftime('%B')
-# average.plot(figsize=(14,8),subplots=True, layout=(6,4), title= 'CICLO ANUAL')
-
-df_trend, df_season, df_residual = deseasonal_df(df_anom)
-df_des = df_trend + df_residual
-
-av_north = (average[['NE12', 'NE14', 'NE15', 'NE17', 'NE19']]).mean(axis=1)
-av_central = (average[['NE01', 'NE02', 'NE03', 'NE05', 'NE06', 'NE08', 'NE09', 'NE10', 'KS02']]).mean(axis=1)
-av_south = (average[['TX08', 'TX08']]).mean(axis=1)
-
-
-# REMOVE LINEAR TREND
-
-GWa_detrend = detrend(GWa, axis=0)
-TWSa_detrend = detrend(TWSa, axis=0)
-
-#precip_a = anomalies(precip, 276)[:-12]
-precip_a = precip - np.nanmean(precip, axis=0)
-precip_detrend = detrend(precip_a, axis=0)
-
-
 # ANNUAL CYCLE
 
 #GWa_annual, dates_annual = annual_cycle(estandarizar(GWa_detrend), dates_grace)
-GWa_annual, dates_annual = annual_cycle(GWa_detrend, dates_grace)
-# plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
+#GWa_annual, dates_annual = annual_cycle(GWa_detrend, dates_grace)
+#plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
 # GWa_annual_mean = [np.nanmean(GWa_annual[i,:]) for i in range(12)]
 
 #precip_annual, dates_annual = annual_cycle(estandarizar(precip_detrend), pd.date_range('1981-01-15','2021-07-17', freq='M'))
-precip_annual, dates_annual = annual_cycle(precip_detrend, pd.date_range('1981-01-15','2022-10-17', freq='M'))
-# plot_map12('figures/anual_cycle_precip.jpg', precip_annual , dates_annual, r'$Rain \, anomalies [cm]$', [-8, 8], 'PuOr', norm=False)
+#precip_annual, dates_annual = annual_cycle(precip_detrend, dates_chirps)
+#plot_map12('figures/anual_cycle_precip.jpg', precip_annual , dates_annual, r'$Rain \, anomalies [cm]$', [-8, 8], 'PuOr', norm=False)
 # precip_annual_mean = [np.nanmean(precip_annual[i,:]) for i in range(12)]
 
 #variables = [GWa_annual*2, precip_annual[-231:, :]]
 #nombres = [r"$GWa x2$", r"$Rain$"]
+nombres_df = ["GWa_mean","GWa_min", "GWa_max", "GWa_N_mean", "GWa_N_min", "GWa_N_max", "GWa_C_mean", "GWa_C_min",
+              "GWa_C_max", "GWa_S_mean", "GWa_S_min", "GWa_S_max"]
 
-variables = [GWa*mask, GWa_N, GWa_C, GWa_S]
-nombres_GRACE = [r"GWa", r"GWa northern HPA", r"GWa central HPA", r"GWa southern HPA"]
+
+
+GWa_stat = np.array([np.nanmean(GWa_m.reshape(244, 24, 18)*mask, axis=(1,2)), np.nanmin(GWa_m.reshape(244, 24, 18)*mask, axis=(1,2)),
+                                 np.nanmax(GWa_m.reshape(244, 24, 18)*mask, axis=(1,2)), np.nanmean(GWa_N, axis=1),np.nanmin(GWa_N, axis=1),
+                                 np.nanmax(GWa_N, axis=1),np.nanmean(GWa_C, axis=1),np.nanmin(GWa_C, axis=1),
+                                 np.nanmax(GWa_C, axis=1), np.nanmean(GWa_S, axis=1), np.nanmin(GWa_S, axis=1), 
+                                 np.nanmax(GWa_S, axis=1)])
+
+df_GWa_variables = pd.DataFrame(GWa_stat.T, index=dates_grace, columns=nombres_df)
+
+nombres_df_TWSa = ["TWSa_mean","TWSa_min", "TWSa_max", "TWSa_N_mean", "TWSa_N_min", "TWSa_N_max", "TWSa_C_mean", "TWSa_C_min",
+              "TWSa_C_max", "TWSa_S_mean", "TWSa_S_min", "TWSa_S_max"]
+
+TWSa_stat = np.array([np.nanmean(TWSa_m.reshape(244, 24, 18)*mask, axis=(1,2)), np.nanmin(TWSa_m.reshape(244, 24, 18)*mask, axis=(1,2)),
+                                 np.nanmax(TWSa_m.reshape(244, 24, 18)*mask, axis=(1,2)), np.nanmean(TWSa_N, axis=1),np.nanmin(TWSa_N, axis=1),
+                                 np.nanmax(TWSa_N, axis=1),np.nanmean(TWSa_C, axis=1),np.nanmin(TWSa_C, axis=1),
+                                 np.nanmax(TWSa_C, axis=1), np.nanmean(TWSa_S, axis=1), np.nanmin(TWSa_S, axis=1), 
+                                 np.nanmax(TWSa_S, axis=1)])
+
+df_TWSa_variables = pd.DataFrame(TWSa_stat.T, index=dates_grace, columns=nombres_df_TWSa)
+
+nombres_df_precip = ["precip_mean","precip_min", "precip_max", "precip_N_mean", "precip_N_min", "precip_N_max", "precip_C_mean", "precip_C_min",
+              "precip_C_max", "precip_S_mean", "precip_S_min", "precip_S_max"]
+
+
+
+precip_stat = np.array([np.nanmean(precip_m.reshape(499, 24, 18)*mask, axis=(1,2)), np.nanmin(precip_m.reshape(499, 24, 18)*mask, axis=(1,2)),
+                                 np.nanmax(precip_m.reshape(499, 24, 18)*mask, axis=(1,2)), np.nanmean(precip_N, axis=1),np.nanmin(precip_N, axis=1),
+                                 np.nanmax(precip_N, axis=1),np.nanmean(precip_C, axis=1),np.nanmin(precip_C, axis=1),
+                                 np.nanmax(precip_C, axis=1), np.nanmean(precip_S, axis=1), np.nanmin(precip_S, axis=1), 
+                                 np.nanmax(precip_S, axis=1)])
+
+df_precip_variables = pd.DataFrame(precip_stat.T, index=dates_chirps, columns=nombres_df_precip)
+
+
+
+mask_nan = mask_nan[2:-1]
+df_GWa_variables[mask_nan] = np.nan
+GWa_detrend[mask_nan] = np.nan
+
+df_TWSa_variables[mask_nan] = np.nan
+TWSa_detrend[mask_nan] = np.nan
 
 #[basic_stats(variables[i], nombres[i]) for i in range(len(variables))]
 
@@ -1266,13 +1346,14 @@ GWa_annual_S, _ = annual_cycle(GWa_S, dates_grace)
 
 # REMOVE SEASONAL COMPONENT
 
-GWa_residual = deseasonal(GWa_detrend)[0] + deseasonal(GWa_detrend)[2] # sumar tendencia y residual
-GWa_residual = np.reshape(GWa_residual, (247, 432))
+GWa_residual = deseasonal(GWa_detrend.reshape(244, 24, 18))[0] + deseasonal(GWa_detrend.reshape(244, 24, 18))[2] # sumar tendencia y residual
+GWa_residual = np.reshape(GWa_residual, (244, 432))
 
-precip_residual = deseasonal(precip_detrend)[0] + deseasonal(precip_detrend)[2] # sumar tendencia y residual
-precip_residual = np.reshape(precip_residual, (501, 432))
+precip_residual = deseasonal(precip_detrend.reshape(499, 24, 18))[0] + deseasonal(precip_detrend.reshape(499, 24, 18))[2] # sumar tendencia y residual
+precip_residual = np.reshape(precip_residual, (499, 432))
 
 # MODEL
+# HERE WE MUST EXTRACT SEASONAL COMPONENT FROM GLDAS DATA IN ORDER TO OBTAIN GWA FROM MODEL
 
 SWEa_model_residual = deseasonal(SWEa_model)[0] + deseasonal(SWEa_model)[2] # sumar tendencia y residual
 SWEa_model_residual = np.reshape(SWEa_model_residual, (487, 24 * 18))
@@ -1281,73 +1362,186 @@ SMa_model_residual = deseasonal(SMa_model)[0] + deseasonal(SMa_model)[2] # sumar
 SMa_model_residual = np.reshape(SMa_model_residual, (487, 24 * 18))
 
 GWa_model = TWS_model - SMa_model_residual - SWEa_model_residual
-
+GWa_model_m = moving_mean(GWa_model, 3)[2:-1]
 GWa_detrend_model = detrend(GWa_model, axis=0)
 
+dates_model = dates_model[2:-1]
+
+
+# PROBANDO DIFERENTES ANOMALIAS (MENSUAL EN ESTE CASO)
+
+# GWa_tmp = pd.DataFrame(GWa_detrend.reshape(247, 24*18), index=dates_grace)
+# GWa_residual = GWa_tmp - GWa_tmp.groupby(GWa_tmp.index.month).transform("mean")
+
+
+
+
+# total_composites = lag_composites(precip_a.reshape(499, 24*18), pd.date_range('1981-03-01','2022-10-01', freq='M'), \
+#                                   read_oni(data_oni, ['1981-04','2022-10']), 1, "month")
+total_composites = lag_composites(precip_detrend.reshape(499, 24*18), pd.date_range('1981-03-01','2022-10-01', freq='M'), \
+                                  read_oni(data_oni, ['1981-03','2022-09']), 1, "month")
+# total_composites = lag_composites(precip_residual.reshape(499, 24*18), pd.date_range('1981-03-01','2022-10-01', freq='M'), \
+#                                   read_oni(data_oni, ['1981-04','2022-10']), 1, "month")
+# total_composites = lag_composites(precip.reshape(502, 24*18), pd.date_range('1981-01-01','2022-11-01', freq='M'), \
+#                                   read_oni(data_oni, ['1981-01','2022-11']), 1, "month")
+
+#total_composites = lag_composites(GWa_residual_m, dates_grace[1:-1], ONI_grace[1:-1], 1, "month")
+#total_composites = lag_composites(GWa_m.reshape(244, 24*18), dates_grace, ONI_grace, 1, "month")
+#total_composites = lag_composites(GWa_detrend.reshape(244, 24*18), dates_grace, ONI_grace, 1, "month")
+total_composites = lag_composites(GWa_residual, dates_grace, ONI_grace, 1, "month")
+
+
+# plt.plot(np.nanmean(total_composites, axis=0)[:4])
+# plt.plot(np.nanmean(total_composites, axis=0)[4:8])
+# plt.plot(np.nanmean(total_composites, axis=0)[8:12])
+
+plt.plot(np.nanmean(total_composites, axis=0)[:, 0])
+plt.plot(np.nanmean(total_composites, axis=0)[:, 1])
+plt.plot(np.nanmean(total_composites, axis=0)[:, 2])
+
+#%%
+
+
+fig, ax = plt.subplots(figsize=(12, 8),subplot_kw={'projection': ccrs.PlateCarree()}, dpi=300)
+
+
+ax.contourf(lon_grace,lat_grace, np.mean(precip, axis=0), cmap='GnBu',vmax=10,vmin=0)
+ax.add_feature(cartopy.feature.NaturalEarthFeature(category='cultural',scale='50m',
+                name='admin_1_states_provinces_lines',edgecolor='k', facecolor='none',linewidth=0.5))
+
+#%%
+GWa_m = moving_mean(GWa.reshape(247, 24*18), 3, center=False)[2:-1]
+GWa_detrend = detrend(GWa_m, axis=0)
+
+TWSa_m = moving_mean(TWSa.reshape(247, 24*18), 3, center=False)[2:-1]
+TWSa_detrend = detrend(TWSa_m, axis=0)
+
+#precip_a = anomalies(precip, 276)[:-12]
+precip_m = moving_mean(precip.reshape(502, 24*18), 3, center=False)[2:-1]
+
+GWa_N, GWa_C, GWa_S = HPA_zones(GWa[2:-1], mask)
+TWSa_N, TWSa_C, TWSa_S = HPA_zones(TWSa[2:-1], mask)
+precip_N, precip_C, precip_S = HPA_zones(precip[2:-1], mask)
+
+# GWa_N, GWa_C, GWa_S = HPA_zones(GWa_m, mask)
+# TWSa_N, TWSa_C, TWSa_S = HPA_zones(TWSa_m, mask)
+# precip_N, precip_C, precip_S = HPA_zones(precip_m, mask)
+
+orden_subplots = np.array([precip_N, precip_C, precip_S, TWSa_N, TWSa_C, TWSa_S, GWa_N, GWa_C, GWa_S])
+labels_zones = ['North HPA', 'Central HPA', 'South HPA']
+x_ticks_labels=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+fig, ax = plt.subplots(3,3, figsize=(12, 6), dpi=200, sharex=True)
+
+for ix in range(3):
+    subplt = orden_subplots[ix]
+    if subplt.ndim > 2:
+        subplt = orden_subplots[ix].reshape(orden_subplots[ix].shape[0], orden_subplots[ix].shape[1]*orden_subplots[ix].shape[2])
+    else:
+        pass
+    composites = lag_composites(subplt, dates_chirps, read_oni(data_oni, ['1981-03','2022-09']), 0, "month")
+    # ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 0], c='navy', label='Niño')
+    # ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 1], c='firebrick', label='Niña')
+    # ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 2], c='gray', label='Neutral')
+    ax.flat[ix].plot(np.nanmean(composites, axis=(0,2)), c='k', ls='--')
+    ax.flat[ix].set_title(labels_zones[ix])
+    ax.flat[ix].spines[['right', 'top']].set_visible(False)
+    ax.flat[ix].grid(alpha=0.2)
+    ax.flat[ix].set_ylim(0, 11)
+
+for ix in np.arange(3,9):
+    subplt = orden_subplots[ix]
+    if subplt.ndim > 2:
+        subplt = orden_subplots[ix].reshape(orden_subplots[ix].shape[0], orden_subplots[ix].shape[1]*orden_subplots[ix].shape[2])
+    else:
+        pass
+
+    composites = lag_composites(subplt, dates_grace, ONI_grace, 1, "month")
+    
+    ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 0], c='navy', label='Niño')
+    ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 1], c='firebrick', label='Niña')
+    ax.flat[ix].plot(np.nanmean(composites, axis=0)[:, 2], c='gray', label='Neutral')
+    ax.flat[ix].plot(np.nanmean(composites, axis=(0,2)), c='k', ls='--')
+    ax.flat[ix].spines[['right', 'top']].set_visible(False)
+    ax.flat[ix].set_xticks(np.arange(0,12))
+    ax.flat[ix].set_xticklabels(x_ticks_labels, rotation=45)
+    ax.flat[ix].grid(alpha=0.2)
+    ax.flat[ix].set_ylim(-10, 10)
+
+ax.flat[0].set_ylabel('Precipitation [cm]',font='Arial', fontsize=12)
+ax.flat[3].set_ylabel('TWSa [cm]', font='Arial', fontsize=12)
+ax.flat[6].set_ylabel('GWa [cm]', font='Arial', fontsize=12)
+
+ax.flat[6].legend(bbox_to_anchor=(.9, -.25), ncol=3)
+
+ax.flat[7].set_xlabel('Month', font='Arial', fontsize=12)
+
+fig.tight_layout()
+
+fig.savefig('figures/enso_annual_cycle.pdf', dpi=200, transparent=False, edgecolor='none',bbox_inches='tight')
+
+# GWa_residual_df = pd.DataFrame(GWa_residual_m[1:], index=dates_grace[2:-1])
+# GWa_residual_df_sub = GWa_residual_df[GWa_residual_df.index.month == [4,5,6]]
+# GWa_residual_df_sub.groupby(GWa_residual_df_sub.index.month).mean()
 colors = ['firebrick', 'royalblue', 'darkturquoise', 'lime']
-
-# Probando suavizado
-# GWa_residual_m = moving_mean(GWa_residual, 3)[1:-1]
-# GWa_detrend_model_m = moving_mean(GWa_detrend_model, 3)[1:-1]
-
-
-
-GWa_residual_m = moving_mean(GWa_detrend.reshape(247, 24*18), 3)[1:-1]
-GWa_detrend_model_m = GWa_detrend_model[1:-1]
-
-
 #%%
 
 # COMPOSITES    SSSS!!!
 
 
-# EXPLORAR EL DOBLE SUAVIZADO EN TEMPORADAS A VER SI ME QUEDA MAS CLARO COMO SE COMPORTA TWS Y GW
-
-
 #lag = 0
-for lag in [-4, -2, 0, 2, 4]:
-    labels_composites = ['El Niño', 'La Niña', 'Neutral']
+for lag in [0, 1, 2, 3, 4, 5]:
+    
     total_composites = lag_composites(GWa_residual_m, dates_grace[1:-1], ONI_grace[1:-1], lag, "total")
     total_composites_m = lag_composites(GWa_detrend_model_m, dates_model[1:-1], ONI_model[1:-1], lag, "total")
 
     plot_EOFs(f'figures/total_composites_grace.jpg', total_composites, lat_grace, lon_grace, 3, labels_composites,f'anom lag {lag}',\
             5, grid=(1,3), fig_size=(6,3), points=None)
+    
+    plot_EOFs(f'figures/total_composites_model.jpg', total_composites_m, lat_grace, lon_grace, 3, labels_composites,f'anom lag {lag}',\
+            5, grid=(1,3), fig_size=(6,3), points=None)
 
 
+#%%
 # plot_EOFs(f'figures/total_composites_model.jpg', total_composites_m, lat_grace, lon_grace, 3, labels_composites,r'anom',\
 #         5, grid=(1,3), fig_size=(6,3), points=None)
 
-for lag in [-4, -2, 0, 2, 4]:
+for lag in [0,1,2,3,4,5]:
 
-    seasonal_labels = ["DJF", "MAM", "JJA", "SON"] + [""] * 8
     seasonal_composites = lag_composites(GWa_residual_m, dates_grace[1:-1], ONI_grace[1:-1], lag, "season")
     season_composites_m = lag_composites(GWa_detrend_model_m, dates_model[1:-1], ONI_model[1:-1], lag, "season")
 
     plot_EOFs(f'figures/seasonal_composites_grace.jpg', seasonal_composites, lat_grace, lon_grace, 12, seasonal_labels,f'anom lag {lag}',\
             5, grid=(3,4), fig_size=(6,6), points=None)
 
-# plot_EOFs(f'figures/seasonal_composites_model.jpg', season_composites_m, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
+# plot_EOFs(f'figures/seasonal_composites_model.jpg', season_composites_m, lat_grace, lon_grace, 12, seasonal_labels,f'anom lag {lag}',\
 #         5, grid=(3,4), fig_size=(6,6), points=None)
 
 
 #%%
 
-precip_residual_m = moving_mean(precip_residual.reshape(501, 24*18), 3, center=True)[2:-1]
+#precip_residual_m = moving_mean(precip_detrend.reshape(501, 24*18), 3, center=True)[2:-1]
 #precip_residual_m = precip_residual[2:-1]
+#precip_residual_m = precip[2:-1].reshape(498, 24*18)
+precip_tmp = pd.DataFrame(precip[2:-1].reshape(499, 24*18), index=pd.date_range('1981-04-01','2022-11-01', freq='M'))
+precip_residual_m = precip_tmp - precip_tmp.groupby(precip_tmp.index.month).transform("mean")
 
 # con precip_detrend ya se ven algunas cosas
 
-lag = 0
+lags = [0, 1, 2, 3, 4, 5, 6]
 
-total_composites_p = lag_composites(precip_residual_m, pd.date_range('1981-04-01','2022-10-01', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "total")
+for lag in lags:
+    total_composites_p = lag_composites(precip_residual_m
+                                        , pd.date_range('1981-04-01','2022-10-01', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "total")
 
-plot_EOFs(f'figures/total_composites_precip.jpg', total_composites_p, lat_grace, lon_grace, 3, labels_composites,r'anom',\
-        1, grid=(1,3), fig_size=(6,3), points=None)
+    plot_EOFs(f'figures/total_composites_precip.jpg', total_composites_p, lat_grace, lon_grace, 3, labels_composites,f'anom lag {lag}',\
+            1, grid=(1,3), fig_size=(6,3), points=None)
 
-seasonal_composites_p = lag_composites(precip_residual_m, pd.date_range('1981-04-01','2022-10-01', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "season")
+    seasonal_composites_p = lag_composites(precip_residual_m
+                                           , pd.date_range('1981-04-01','2022-10-01', freq='M'), read_oni(data_oni, ['1981-04','2022-10']), lag, "season")
 
-plot_EOFs(f'figures/seasonal_composites_precip.jpg', seasonal_composites_p, lat_grace, lon_grace, 12, seasonal_labels,r'anom',\
-        1, grid=(3,4), fig_size=(6,6), points=None)
+    plot_EOFs(f'figures/seasonal_composites_precip.jpg', seasonal_composites_p, lat_grace, lon_grace, 12, seasonal_labels,f'anom lag {lag}',\
+            2, grid=(3,4), fig_size=(6,6), points=None)
 
 
 # Precip_N = (mask*precip_residual_m.reshape(498, 24, 18))[:, :8, :]
@@ -1360,6 +1554,136 @@ plot_EOFs(f'figures/seasonal_composites_precip.jpg', seasonal_composites_p, lat_
 
 #plt.plot(pd.date_range('1981-04-15','2022-10-17', freq='M'), np.nanmean(Precip_C, axis=(1,2)))
 #plt.plot(pd.date_range('1981-04-15','2022-10-17', freq='M'), np.nanmean(Precip_S, axis=(1,2)))
+
+
+#%%
+
+
+
+
+## SERIES GRACE Y MODEL !!
+
+
+
+
+df_All_variables = pd.concat((df_precip_variables, df_TWSa_variables, df_GWa_variables), axis=1)
+df_All_variables = ENSO_category(df_All_variables, read_oni(data_oni, ['1981-01','2022-10'], standard=False))
+df_All_variables = df_All_variables.loc["2002":]
+
+y = [["precip_N_mean", "precip_C_mean", "precip_S_mean"], ["TWSa_N_mean", "TWSa_C_mean", "TWSa_S_mean"], 
+     ["GWa_N_mean", "GWa_C_mean", "GWa_S_mean"]]
+
+styles = ["-", "--"]
+titles = ["Precipitation", "TWSa", "GWa"]
+colores = ["firebrick","darkgoldenrod", "indigo"]
+
+label = ["Northern HPA", "Central HPA", "Southern HPA"]
+from matplotlib import dates as mdates
+fill_params = {"alpha" : 0.2}
+fig, ax = plt.subplots(3, figsize=[10,8], sharex=False, dpi=200)
+
+df_All_variables.plot(y=y[0], ax=ax[0], kind='bar', stacked=True, title=titles[0], color = colores, lw=2)
+
+for phase in [-1.,0.,1.]:
+    mask_enso = df_All_variables.phase == phase
+    ax[0].fill_between(np.arange(len(df_All_variables.index)), 0, 32,\
+            where=mask_enso, facecolor=['skyblue','white','salmon'][int(phase)+1], **fill_params)
+
+ax[0].xaxis.set_tick_params(labelbottom=False)
+ax[0].set_ylim(0, 32)
+ax[0].xaxis.set_minor_locator(mdates.YearLocator(2))
+ax[0].set_xticks(ax[0].get_xticks()[::12])
+
+for ixx, ys in enumerate(y[1:]):
+    ax[ixx + 1].xaxis.set_minor_locator(mdates.YearLocator(2))
+    df_All_variables.plot(y=ys, ax=ax[ixx + 1], style=styles, title=titles[ixx + 1], color = colores, lw=1.2, label=label)
+    plot_enso_years(df_All_variables, y[ixx + 1], ax=ax[ixx + 1], fill_params=fill_params)
+    ax[ixx + 1].set_ylim(np.nanmin(df_All_variables[y[ixx + 1]]), np.nanmax(df_All_variables[y[ixx + 1]]))
+
+for axe in ax:
+    axe.grid(which="both", alpha=0.3)
+    axe.legend().remove()
+    axe.spines[['top', "right"]].set_visible(False)
+    
+ax[1].set_xticklabels([])
+ax[-1].legend(bbox_to_anchor=(0.8, -0.25), ncol=3)
+
+plt.plot()
+
+GWa_model_N = (mask*GWa_model.reshape(487, 24, 18))[:, :8, :]
+GWa_model_C = (mask*GWa_model.reshape(487, 24, 18))[:, 8:15, :]
+GWa_model_S = (mask*GWa_model.reshape(487, 24, 18))[:, 15:, :]
+
+TWS_model_N = (mask*TWS_model.reshape(487, 24, 18))[:, :8, :]
+TWS_model_C = (mask*TWS_model.reshape(487, 24, 18))[:, 8:15, :]
+TWS_model_S = (mask*TWS_model.reshape(487, 24, 18))[:, 15:, :]
+
+nombres_df = ["GWa_mean","GWa_min", "GWa_max", "GWa_N_mean", "GWa_N_min", "GWa_N_max", "GWa_C_mean", "GWa_C_min",
+              "GWa_C_max", "GWa_S_mean", "GWa_S_min", "GWa_S_max"]
+
+GWa_model_stat = np.array([np.nanmean(GWa_model.reshape(487, 24, 18)*mask, axis=(1,2)), np.nanmin(GWa_model.reshape(487, 24, 18)*mask, axis=(1,2)),
+                                 np.nanmax(GWa_model.reshape(487, 24, 18)*mask, axis=(1,2)), np.nanmean(GWa_model_N, axis=(1,2)),np.nanmin(GWa_model_N, axis=(1,2)),
+                                 np.nanmax(GWa_model_N, axis=(1,2)),np.nanmean(GWa_model_C, axis=(1,2)),np.nanmin(GWa_model_C, axis=(1,2)),
+                                 np.nanmax(GWa_model_C, axis=(1,2)), np.nanmean(GWa_model_S, axis=(1,2)), np.nanmin(GWa_model_S, axis=(1,2)), 
+                                 np.nanmax(GWa_model_S, axis=(1,2))])
+
+df_GWa_model_variables = pd.DataFrame(GWa_model_stat.T, index=dates_model, columns=nombres_df)
+
+nombres_df_TWSa = ["TWSa_mean","TWSa_min", "TWSa_max", "TWSa_N_mean", "TWSa_N_min", "TWSa_N_max", "TWSa_C_mean", "TWSa_C_min",
+              "TWSa_C_max", "TWSa_S_mean", "TWSa_S_min", "TWSa_S_max"]
+
+TWS_model_stat = np.array([np.nanmean(TWS_model.reshape(487, 24, 18)*mask, axis=(1,2)), np.nanmin(TWS_model.reshape(487, 24, 18)*mask, axis=(1,2)),
+                                 np.nanmax(TWS_model.reshape(487, 24, 18)*mask, axis=(1,2)), np.nanmean(TWS_model_N, axis=(1,2)),np.nanmin(TWS_model_N, axis=(1,2)),
+                                 np.nanmax(TWS_model_N, axis=(1,2)),np.nanmean(TWS_model_C, axis=(1,2)),np.nanmin(TWS_model_C, axis=(1,2)),
+                                 np.nanmax(TWS_model_C, axis=(1,2)), np.nanmean(TWS_model_S, axis=(1,2)), np.nanmin(TWS_model_S, axis=(1,2)), 
+                                 np.nanmax(TWS_model_S, axis=(1,2))])
+
+df_TWSa_model_variables = pd.DataFrame(TWS_model_stat.T, index=dates_model, columns=nombres_df_TWSa)
+
+df_all_variables_model = pd.concat((df_precip_variables, df_TWSa_model_variables, df_GWa_model_variables), axis=1)
+df_all_variables_model = ENSO_category(df_all_variables_model, read_oni(data_oni, ['1981-01','2022-10'], standard=False))
+
+df_all_variables_model = df_all_variables_model.loc["1979":"2019"]
+
+y = [["precip_N_mean", "precip_C_mean", "precip_S_mean"], ["TWSa_N_mean", "TWSa_C_mean", "TWSa_S_mean"], 
+     ["GWa_N_mean", "GWa_C_mean", "GWa_S_mean"]]
+
+styles = ["-", "--"]
+titles = ["Precipitation", "TWSa", "GWa"]
+colores = ["firebrick","darkgoldenrod", "indigo"]
+
+label = ["Northern HPA", "Central HPA", "Southern HPA"]
+from matplotlib import dates as mdates
+fill_params = {"alpha" : 0.2}
+fig, ax = plt.subplots(3, figsize=[10,8], sharex=False, dpi=200)
+
+df_all_variables_model.plot(y=y[0], ax=ax[0], kind='bar', stacked=True, title=titles[0], color = colores, lw=2)
+
+for phase in [-1.,0.,1.]:
+    mask_enso = df_all_variables_model.phase == phase
+    ax[0].fill_between(np.arange(len(df_all_variables_model.index)), 0, 32,\
+            where=mask_enso, facecolor=['skyblue','white','salmon'][int(phase)+1], **fill_params)
+
+ax[0].xaxis.set_tick_params(labelbottom=False)
+ax[0].set_ylim(0, 32)
+ax[0].xaxis.set_minor_locator(mdates.YearLocator(2))
+ax[0].set_xticks(ax[0].get_xticks()[::12])
+
+for ixx, ys in enumerate(y[1:]):
+    ax[ixx + 1].xaxis.set_minor_locator(mdates.YearLocator(2))
+    df_all_variables_model.plot(y=ys, ax=ax[ixx + 1], style=styles, title=titles[ixx + 1], color = colores, lw=1.2, label=label)
+    plot_enso_years(df_all_variables_model, y[ixx + 1], ax=ax[ixx + 1], fill_params=fill_params)
+    ax[ixx + 1].set_ylim(np.nanmin(df_all_variables_model[y[ixx + 1]]), np.nanmax(df_all_variables_model[y[ixx + 1]]))
+
+for axe in ax:
+    axe.grid(which="both", alpha=0.3)
+    axe.legend().remove()
+    axe.spines[['top', "right"]].set_visible(False)
+    
+ax[1].set_xticklabels([])
+ax[-1].legend(bbox_to_anchor=(0.8, -0.25), ncol=3)
+
+plt.plot()
 
 
 #%%
@@ -2407,18 +2731,12 @@ fig.subplots_adjust(wspace=2.3)
 fig.savefig('figures/trends.pdf', dpi=200, edgecolor='none', bbox_inches='tight')
 
 
-#%%
 
-## annual cycle GWA 
-# 
-# """"""""""""""""""
-
-from matplotlib.ticker import FuncFormatter
-from matplotlib.dates import MonthLocator, DateFormatter 
+# %%
 
 
-#def plot_map12(out, matrix, title, labeli, vals, cmap='bwr', mask=False, norm=True):
-#plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
+# def plot_map12(out, matrix, title, labeli, vals, cmap='bwr', mask=False, norm=True):
+# plot_map12('figures/anual_cycle_GWa.jpg', GWa_annual , dates_annual, r'$GW \, anomalies [cm]$', 8, cmap='seismic_r', mask=True)
 variables = [GWa_annual_N, GWa_annual_C, GWa_annual_S]
 nombres_GRACE = ["GWa North", "GWa Central", "GWa South"]
 months = ['J', 'F', 'M', 'A', 'M ', ' J', ' J ', 'A', 'S', 'O', 'N', 'D']
@@ -2441,8 +2759,6 @@ for i in range(12):
     
     mes = matrix[i,:].reshape(24,18)
 
-  #  if mask == True:
-  #      mes = mes * mascara
 
     ax.flat[i].add_feature(cfeature.ShapelyFeature(reader.geometries(),ccrs.PlateCarree()),\
             facecolor='none', edgecolor=[0,0,0,1],linewidth=1)
@@ -2452,7 +2768,7 @@ for i in range(12):
     gl = ax.flat[i].gridlines(crs=ccrs.PlateCarree(),xlocs=[-106,-103,-100,-97],
                     draw_labels=False,linewidth=1,color='k',alpha=0.3, linestyle='--')
     
-#if norm:
+
     ax.flat[i].contourf(lon_grace,lat_grace, mes, cmap=cmap,vmax=vals,vmin=-1*vals)
     # else:
     #     ax.flat[i].contourf(lon_grace,lat_grace, mes, cmap=cmap,vmax=vals[1],vmin=vals[0])
@@ -2482,15 +2798,12 @@ for z in ax[:2,0]:
 for y in ax.flat[-6:]:
     y.axis('off')
 
-#fig.suptitle('a)', x=0.05, y=0.9,**csfont)
-# fig.subplots_adjust(bottom=0.2)
 cbar_ax = fig.add_axes([0.1, 0.31, 0.8, 0.05])
 cbar_ax.axis('off')
 [tick.set_visible(False) for tick in cbar_ax.xaxis.get_ticklabels()]
 [tick.set_visible(False) for tick in cbar_ax.yaxis.get_ticklabels()]
 cbar_ax.tick_params(axis=u'both', which=u'both',length=0)
 
-# #if norm:
 fig.colorbar(plt.cm.ScalarMappable(cmap=cmap, \
         norm=plt.Normalize(-1*vals,vals)),ax=cbar_ax,orientation='horizontal',\
             fraction=0.9,pad=0.02,aspect=100,shrink=1,label=labeli, extend='both')
@@ -2502,7 +2815,6 @@ colors_s = ['r', 'darkblue', 'k']
 for i in range(len(variables)):
     ax_b.plot(title, spatial_mean(variables[i]), label=nombres_GRACE[i], color=colors_s[i])   
 
-#ax_b.set_title('b)', loc='left', **csfont)
 ax_b.set_xlabel('Time')
 ax_b.set_ylabel('GWa [cm]')
 ax_b.spines['top'].set_visible(False)
@@ -2512,8 +2824,6 @@ ax_b.grid(color='gray', linestyle='--', alpha=0.3)
 ax_b.set_ylim(-4, 4)
      
 ax_c = fig.add_axes([0.55, 0.0001, 0.4, 0.23])
-#axes = fig.add_subplot(3, 2, 5)
-#axes.fill_between(dates_complete, -15, 15, where = mask_nan, color='gray', alpha=0.3)
 ax_c.plot(estandarizar(av_north), label='North', c='r')
 ax_c.plot(estandarizar(av_central), label='Central', c='darkblue', ls='-')
 ax_c.plot(estandarizar(av_south), label='South', c='k')
@@ -2525,18 +2835,9 @@ ax_c.legend(prop={'family' : 'Arial'})
 ax_c.spines['top'].set_visible(False)
 ax_c.spines['right'].set_visible(False)
 ax_c.grid(alpha=0.3)
-     
-month_fmt = DateFormatter('%b')
-def m_fmt(x, pos=None):
-    return month_fmt(x)[0]
 
 ax_b.set_xticklabels(months)
 ax_c.set_xticklabels(months)
-# ax_b.xaxis.set_major_locator(MonthLocator())
-# ax_b.xaxis.set_major_formatter(FuncFormatter(m_fmt(title)))
-
-# ax_c.xaxis.set_major_locator(MonthLocator())
-# ax_c.xaxis.set_major_formatter(FuncFormatter(m_fmt(title)))
 
 ax_c.text(0.04, 0.86, "a)", transform=fig.transFigure, **csfont)
 ax_c.text(0.04, 0.24, "b)", transform=fig.transFigure, **csfont)
@@ -2679,3 +2980,75 @@ ax_b.text(0.02, 0.28, "b)", transform=fig.transFigure, **csfont)
 
 #fig.tight_layout()
 fig.savefig('figures/precip_annual_cycle.pdf', dpi=200, transparent=False, edgecolor='none',bbox_inches='tight')
+
+
+#%%
+### POZOS POR AHORA,     ORGANIZAR!!
+
+# spatial_plot('', variables, nombres, dates_grace, mascara=mask)
+
+# #plot corr
+# fig, axes = plt.subplots(1,2,figsize=(12,3))
+# sns.heatmap(corr_matrix(variables[:4], nombres[:4], dates_grace),ax=axes[0] , annot=True, cmap='Blues')
+# sns.heatmap(corr_matrix(variables[4:], nombres[4:], dates_model),ax=axes[1] , annot=True, cmap='Blues')
+
+
+# MK TEST
+#plot_MK_test('figures/mk_test_GWa.jpg' ,GWa, tendencia(GWa)[0], lat_grace, lon_grace)
+
+
+nombres = sorted(os.listdir('data/pozos'))
+
+delimiters = [' ', ' ', '\t', '\t','\t','\t','\t','\t','\t',' ','\t','\t','\t','\t',' ', '\t','\t','\t', '\t']
+col_date = [3,5,2,3,3,2,3,3,3,3,3,3,3,3,3,3,3,3,3]
+col_val = [4,10,3,6,6,3,6,6,6,4,6,6,6,6,4,6,6,6,6]
+
+df = pd.DataFrame(index=pd.date_range('01-01-1940', '31-10-2021', freq='M'))
+
+
+for i, j in enumerate(nombres):
+    serie = pd.read_csv(f'data/pozos/{nombres[i]}', delimiter=delimiters[i], header = None, usecols = [col_date[i],col_val[i]], index_col=0,names = ['date' ,nombres[i].split('.')[0]], infer_datetime_format = True)
+    serie.index = pd.to_datetime(serie.index, errors='coerce')
+    serie = serie.resample('M').mean()
+    
+    df = df.join(serie)
+    
+df
+
+ft_to_cm = 30.48
+s_y = -0.15
+
+df_anom = (df*ft_to_cm - (df*ft_to_cm).mean()) * s_y
+#df_anom = s_y * ft_to_cm * df.diff()
+
+df_anom = df_anom.interpolate('linear', limit_direction = 'both')
+df_anom = df_anom['1979':'06-2021']
+
+df_anom = df_anom.drop('NE04', axis=1)
+
+mann_kendall = MK_test_df(df_anom)
+#mann_kendall = MK_test_df(df_gmean_season + df_gmean_residuales)
+    
+locacion = pd.read_excel('data/loc_pozos.xls', index_col=0)
+locacion = locacion.drop('NE04')
+
+s = mann_kendall['Slope'].values.astype('float16')
+
+# Zoom
+locacion_zoom = locacion['NE01':'NE12']
+s_zoom = mann_kendall['Slope']['NE01':'NE12'].values.astype('float16')
+
+names = df_anom.columns
+names_zoom = names[1:10]
+names = np.setdiff1d(names, names_zoom)
+
+average = df_anom.groupby(df_anom.index.month).mean()
+average.index = pd.date_range('1/15/2020', '1/15/2021', freq='M').strftime('%B')
+# average.plot(figsize=(14,8),subplots=True, layout=(6,4), title= 'CICLO ANUAL')
+
+df_trend, df_season, df_residual = deseasonal_df(df_anom)
+df_des = df_trend + df_residual
+
+av_north = (average[['NE12', 'NE14', 'NE15', 'NE17', 'NE19']]).mean(axis=1)
+av_central = (average[['NE01', 'NE02', 'NE03', 'NE05', 'NE06', 'NE08', 'NE09', 'NE10', 'KS02']]).mean(axis=1)
+av_south = (average[['TX08', 'TX08']]).mean(axis=1)
